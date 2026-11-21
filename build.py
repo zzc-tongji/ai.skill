@@ -2,25 +2,30 @@
 """Skill monorepo 构建脚本。
 
 从 src/（通用正文）+ variants/<agent>/（各平台 head）拼装出完整 SKILL.md，
-连同 assets/ scripts/ 一起输出到仓库根目录下的 dist/ 目录（已被 .gitignore 忽略）。
+连同 assets/ scripts/ 一起打包为 zip，输出到仓库根目录下的 dist/ 目录。
 
-输出结构：dist/<agent>/<skill>/
+规则：
+- 只对 variants/ 下存在对应 head 文件的 Agent 生成产物。
+- 每个 skill 每个 agent 打包为一个 zip：dist/<agent>/<skill>.zip。
 
 用法：
-    python build.py                 # 构建所有 skill 到 dist/（按 agent 分目录）
-    python build.py --agent qwen    # 只构建 qwen
+    python build.py                 # 构建所有（有 head 的）agent
+    python build.py --agent qwen    # 只构建指定 agent
     python build.py --dry-run       # 只打印将做什么，不写文件
-    python build.py --list          # 列出发现的 skill 与各平台 head 覆盖情况
+    python build.py --list          # 列出 skill 与各平台 head 覆盖情况
     python build.py --clean         # 清空 dist/
 
 铁律：只改 src/ 和 variants/，dist/ 是生成物，不要手改，也不要提交。
+
+仅使用 Python 标准库，无第三方依赖。
 """
 import argparse
 import os
 import shutil
 import sys
+import zipfile
 
-# 参与构建的平台（每个平台一个 variants 子目录）
+# 参与构建的平台（每个平台对应一个 variants 子目录）
 AGENTS = ["qwen", "workbuddy", "claude", "codex"]
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -45,11 +50,11 @@ def read(path):
 
 
 def head_for(agent, skill):
-    """取某个 agent 对某个 skill 的 head 内容；无则返回空字符串。"""
+    """取某个 agent 对某个 skill 的 head 内容；无则返回 None。"""
     head = os.path.join(VARIANTS_DIR, agent, f"{skill}.head.md")
     if os.path.isfile(head):
         return read(head)
-    return ""
+    return None
 
 
 def build_skill_md(agent, skill):
@@ -57,37 +62,43 @@ def build_skill_md(agent, skill):
     body = read(os.path.join(SRC_DIR, skill, "SKILL.md"))
     head = head_for(agent, skill)
     if head:
-        # 确保 head 末尾有换行，避免与正文粘连
         if not head.endswith("\n"):
             head += "\n"
         return head + "\n" + body
     return body
 
 
-def build_skill(skill, agents, dry_run):
-    """把 skill 构建到 dist/<agent>/<skill>/。"""
+def zip_skill(skill, agent, dst_zip):
+    """把 skill 打包为 zip：SKILL.md 在根，assets/ scripts/ 原样放入。"""
     src_skill = os.path.join(SRC_DIR, skill)
+    md = build_skill_md(agent, skill)
+    with zipfile.ZipFile(dst_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("SKILL.md", md)
+        for sub in ("assets", "scripts"):
+            sub_dir = os.path.join(src_skill, sub)
+            if not os.path.isdir(sub_dir):
+                continue
+            for root, _dirs, files in os.walk(sub_dir):
+                for name in files:
+                    full = os.path.join(root, name)
+                    arc = os.path.relpath(full, src_skill).replace("\\", "/")
+                    zf.write(full, arc)
+
+
+def build_skill(skill, agents, dry_run):
+    """为 skill 在指定 agents 下生成 zip；无 head 的 agent 跳过。"""
     results = []
     for agent in agents:
-        dst = os.path.join(DIST_DIR, agent, skill)
-        md = build_skill_md(agent, skill)
-
-        if dry_run:
-            results.append((agent, "dry-run", f"将写入 {dst}"))
+        if head_for(agent, skill) is None:
+            results.append((agent, "skip", "无 head，跳过"))
             continue
-
-        # 写 SKILL.md，并同步 assets/ 与 scripts/
-        os.makedirs(dst, exist_ok=True)
-        with open(os.path.join(dst, "SKILL.md"), "w", encoding="utf-8") as f:
-            f.write(md)
-        for sub in ("assets", "scripts"):
-            sub_src = os.path.join(src_skill, sub)
-            sub_dst = os.path.join(dst, sub)
-            if os.path.isdir(sub_src):
-                shutil.rmtree(sub_dst, ignore_errors=True)
-                shutil.copytree(sub_src, sub_dst)
-
-        results.append((agent, "ok", dst))
+        dst_zip = os.path.join(DIST_DIR, agent, f"{skill}.zip")
+        if dry_run:
+            results.append((agent, "dry-run", f"将生成 {dst_zip}"))
+            continue
+        os.makedirs(os.path.dirname(dst_zip), exist_ok=True)
+        zip_skill(skill, agent, dst_zip)
+        results.append((agent, "ok", dst_zip))
     return results
 
 
@@ -96,15 +107,12 @@ def cmd_list():
     if not skills:
         print("src/ 下没有 skill。")
         return
-    agents = AGENTS
-    print(f"{'skill':<32} " + " ".join(a[:6].ljust(6) for a in agents))
+    print(f"{'skill':<32} " + " ".join(a[:6].ljust(6) for a in AGENTS))
     print("-" * 70)
     for s in skills:
-        flags = []
-        for a in agents:
-            flags.append("H" if head_for(a, s) else "-")
+        flags = ["H" if head_for(a, s) is not None else "-" for a in AGENTS]
         print(f"{s:<32} " + " ".join(f.ljust(6) for f in flags))
-    print("\nH = 该平台有 head 文件，- = 无 head（将退化为纯正文）")
+    print("\nH = 该平台有 head 文件，- = 无 head（该平台不会生成产物）")
 
 
 def main():
