@@ -67,7 +67,10 @@ python build.py --clean         # 清空 dist/
 | `src/<skill>/SKILL.md` | 通用正文（标题、指令、步骤、示例） | **不放 frontmatter 头** |
 | `src/<skill>/assets/` | 技能用到的模板、xlsx、图片等静态资源 | 不放可执行逻辑（放 scripts/） |
 | `src/<skill>/scripts/` | 技能用到的脚本（py/sh 等） | 不放数据文件 |
+| `src/<skill>/references/` | 按需加载的参考文档（md 等） | 不放 frontmatter 头 |
 | `variants/<agent>/<skill>.head.md` | 该平台的 frontmatter 头（name/description 等） | 不放正文 |
+
+> `build.py` 会把 `src/<skill>/` 下除 `SKILL.md` 外的所有子目录（`assets/`、`scripts/`、`references/` 等）原样打入 zip。
 
 ### frontmatter 头（variants）
 

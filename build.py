@@ -69,20 +69,20 @@ def build_skill_md(agent, skill):
 
 
 def zip_skill(skill, agent, dst_zip):
-    """把 skill 打包为 zip：SKILL.md 在根，assets/ scripts/ 原样放入。"""
+    """把 skill 打包为 zip：SKILL.md 在根，其余子目录（assets/ scripts/ references/ 等）原样放入。"""
     src_skill = os.path.join(SRC_DIR, skill)
     md = build_skill_md(agent, skill)
     with zipfile.ZipFile(dst_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("SKILL.md", md)
-        for sub in ("assets", "scripts"):
-            sub_dir = os.path.join(src_skill, sub)
-            if not os.path.isdir(sub_dir):
+        for entry in sorted(os.listdir(src_skill)):
+            full = os.path.join(src_skill, entry)
+            if entry == "SKILL.md" or not os.path.isdir(full):
                 continue
-            for root, _dirs, files in os.walk(sub_dir):
+            for root, _dirs, files in os.walk(full):
                 for name in files:
-                    full = os.path.join(root, name)
-                    arc = os.path.relpath(full, src_skill).replace("\\", "/")
-                    zf.write(full, arc)
+                    fpath = os.path.join(root, name)
+                    arc = os.path.relpath(fpath, src_skill).replace("\\", "/")
+                    zf.write(fpath, arc)
 
 
 def build_skill(skill, agents, dry_run):
