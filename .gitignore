@@ -1,0 +1,18 @@
+# ---- 本地 Agent 技能目录（产物，绝不上传，由 build.py 生成）----
+.workbuddy/skills/
+.claude/skills/
+.qwen/
+.codex/
+
+# ---- 临时 / 系统 ----
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# ---- 凭据 ----
+.env
+.env.*
+*.key
+*.pem
