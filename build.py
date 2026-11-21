@@ -69,20 +69,19 @@ def build_skill_md(agent, skill):
 
 
 def zip_skill(skill, agent, dst_zip):
-    """把 skill 打包为 zip：SKILL.md 在根，其余子目录（assets/ scripts/ references/ 等）原样放入。"""
+    """把 skill 打包为 zip：拼装后的 SKILL.md 在根，其余所有内容原样放入。"""
     src_skill = os.path.join(SRC_DIR, skill)
     md = build_skill_md(agent, skill)
     with zipfile.ZipFile(dst_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("SKILL.md", md)
-        for entry in sorted(os.listdir(src_skill)):
-            full = os.path.join(src_skill, entry)
-            if entry == "SKILL.md" or not os.path.isdir(full):
-                continue
-            for root, _dirs, files in os.walk(full):
-                for name in files:
-                    fpath = os.path.join(root, name)
-                    arc = os.path.relpath(fpath, src_skill).replace("\\", "/")
-                    zf.write(fpath, arc)
+        for root, _dirs, files in os.walk(src_skill):
+            for name in files:
+                full = os.path.join(root, name)
+                # SKILL.md 已用拼装版覆盖写入，跳过源里的原始正文
+                if full == os.path.join(src_skill, "SKILL.md"):
+                    continue
+                arc = os.path.relpath(full, src_skill).replace("\\", "/")
+                zf.write(full, arc)
 
 
 def build_skill(skill, agents, dry_run):

@@ -43,11 +43,11 @@ python build.py --dry-run       # 只看不写
 python build.py --clean         # 清空 dist/
 ```
 
-产物是 zip 包，位于 `dist/<agent>/<skill>.zip`，该目录已被 `.gitignore` 忽略。zip 内含 `SKILL.md`（head+正文已拼好）及 `assets/`、`scripts/`。
+产物是 zip 包，位于 `dist/<agent>/<skill>.zip`，该目录已被 `.gitignore` 忽略。zip 内含 `SKILL.md`（head+正文已拼好）及 `src/<skill>/` 下的所有其他内容（`assets/`、`scripts/`、`references/` 等）。
 
 ### 新增一个 Skill
 
-1. 建 `src/<skill>/`，写 `SKILL.md`（纯正文），放入 `assets/`、`scripts/`。
+1. 建 `src/<skill>/`，写 `SKILL.md`（纯正文），按需放入 `assets/`、`scripts/`、`references/` 等子目录。
 2. 为需要的平台各写一个 `variants/<agent>/<skill>.head.md`（frontmatter 头）。
 3. `git add . && git commit -m "add: <skill>"`。
 4. `python build.py`。
