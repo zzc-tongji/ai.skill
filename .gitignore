@@ -1,8 +1,5 @@
-# ---- 本地 Agent 技能目录（产物，绝不上传，由 build.py 生成）----
-.workbuddy/skills/
-.claude/skills/
-.qwen/
-.codex/
+# ---- 构建产物（由 build.py 生成，绝不上传）----
+dist/
 
 # ---- 临时 / 系统 ----
 *.log

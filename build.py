@@ -1,33 +1,32 @@
 #!/usr/bin/env python3
-"""Skill monorepo 分发脚本。
+"""Skill monorepo 构建脚本。
 
 从 src/（通用正文）+ variants/<agent>/（各平台 head）拼装出完整 SKILL.md，
-连同 assets/ scripts/ 一起分发到各 Agent 的本地技能目录。
+连同 assets/ scripts/ 一起输出到仓库根目录下的 dist/ 目录（已被 .gitignore 忽略）。
+
+输出结构：dist/<agent>/<skill>/
 
 用法：
-    python build.py                 # 分发所有 skill 到所有已配置的 Agent
-    python build.py --agent qwen    # 只分发到 qwen
+    python build.py                 # 构建所有 skill 到 dist/（按 agent 分目录）
+    python build.py --agent qwen    # 只构建 qwen
     python build.py --dry-run       # 只打印将做什么，不写文件
     python build.py --list          # 列出发现的 skill 与各平台 head 覆盖情况
+    python build.py --clean         # 清空 dist/
 
-铁律：只改 src/ 和 variants/，产物目录是生成物，不要手改。
+铁律：只改 src/ 和 variants/，dist/ 是生成物，不要手改，也不要提交。
 """
 import argparse
 import os
 import shutil
 import sys
 
-# 各 Agent 的本地技能目录（不存在时跳过并提示，不报错）
-TARGETS = {
-    "qwen":      os.path.expanduser("~/.qwen/skills"),
-    "workbuddy": os.path.expanduser("~/.workbuddy/skills"),
-    "claude":    os.path.expanduser("~/.claude/skills"),
-    "codex":     os.path.expanduser("~/.codex/skills"),
-}
+# 参与构建的平台（每个平台一个 variants 子目录）
+AGENTS = ["qwen", "workbuddy", "claude", "codex"]
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(REPO_ROOT, "src")
 VARIANTS_DIR = os.path.join(REPO_ROOT, "variants")
+DIST_DIR = os.path.join(REPO_ROOT, "dist")
 
 
 def list_skills():
@@ -65,18 +64,12 @@ def build_skill_md(agent, skill):
     return body
 
 
-def deploy(skill, agents, dry_run):
+def build_skill(skill, agents, dry_run):
+    """把 skill 构建到 dist/<agent>/<skill>/。"""
     src_skill = os.path.join(SRC_DIR, skill)
     results = []
     for agent in agents:
-        target_root = TARGETS.get(agent)
-        if not target_root:
-            continue
-        if not os.path.isdir(target_root):
-            results.append((agent, "skip", f"目录不存在: {target_root}"))
-            continue
-
-        dst = os.path.join(target_root, skill)
+        dst = os.path.join(DIST_DIR, agent, skill)
         md = build_skill_md(agent, skill)
 
         if dry_run:
@@ -103,7 +96,7 @@ def cmd_list():
     if not skills:
         print("src/ 下没有 skill。")
         return
-    agents = sorted(TARGETS)
+    agents = AGENTS
     print(f"{'skill':<32} " + " ".join(a[:6].ljust(6) for a in agents))
     print("-" * 70)
     for s in skills:
@@ -115,33 +108,42 @@ def cmd_list():
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Skill monorepo 分发脚本")
+    ap = argparse.ArgumentParser(description="Skill monorepo 构建脚本")
     ap.add_argument("--agent", action="append", help="只处理指定 agent（可多次）")
     ap.add_argument("--skill", action="append", help="只处理指定 skill（可多次）")
     ap.add_argument("--dry-run", action="store_true", help="只打印不写")
     ap.add_argument("--list", action="store_true", help="列出 skill 与 head 覆盖")
+    ap.add_argument("--clean", action="store_true", help="清空 dist/")
     args = ap.parse_args()
 
     if args.list:
         cmd_list()
         return
 
+    if args.clean:
+        if os.path.isdir(DIST_DIR):
+            shutil.rmtree(DIST_DIR)
+            print(f"已清空 {DIST_DIR}")
+        else:
+            print(f"{DIST_DIR} 不存在，无需清空。")
+        return
+
     skills = list_skills()
     if args.skill:
         skills = [s for s in skills if s in args.skill]
-    agents = args.agent or list(TARGETS)
+    agents = args.agent or AGENTS
 
     if not skills:
-        print("没有要分发的 skill。")
+        print("没有要构建的 skill。")
         return
 
     for skill in skills:
         print(f"\n[{skill}]")
-        for agent, status, msg in deploy(skill, agents, args.dry_run):
+        for agent, status, msg in build_skill(skill, agents, args.dry_run):
             mark = {"ok": "✔", "skip": "⊘", "dry-run": "→"}.get(status, "?")
             print(f"  {mark} {agent:<10} {msg}")
 
-    print("\n完成。")
+    print(f"\n完成。产物在 {DIST_DIR}")
 
 
 if __name__ == "__main__":

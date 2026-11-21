@@ -5,8 +5,8 @@
 ## 设计原则
 
 - **唯一真源**：Skill 的通用正文只存在 `src/`，各平台的元数据（frontmatter head）存在 `variants/`。
-- **产物不手改**：各 Agent 目录里的文件由 `build.py` 生成，是「构建产物」。**永远只改 `src/` 和 `variants/`**。
-- **一个仓库管所有 Skill**：共享同一套规范和分发脚本；某个 Skill 将来要独立对外发布时，再用 `git subtree split` 拆出。
+- **产物不手改**：`dist/` 由 `build.py` 生成，是「构建产物」。**永远只改 `src/` 和 `variants/`**。
+- **一个仓库管所有 Skill**：共享同一套规范和构建脚本；某个 Skill 将来要独立对外发布时，再用 `git subtree split` 拆出。
 
 ## 目录结构
 
@@ -18,7 +18,8 @@ skill/
 │   └── scripts/               # 技能要用的脚本
 ├── variants/<agent>/          # 各平台的差异（主要是 frontmatter head）
 │   └── <skill>.head.md
-├── build.py                   # 拼装 head+正文 → 分发到各 Agent 目录
+├── dist/<agent>/<skill>/      # ★ 构建产物（gitignore，不提交）
+├── build.py                   # 拼装 head+正文 → 输出到 dist/
 ├── scripts/new-skill.sh       # 一键新建 skill 脚手架
 └── docs/CONVENTIONS.md        # 命名与 frontmatter 规范
 ```
@@ -33,15 +34,16 @@ skill/
 python build.py --list
 ```
 
-### 分发到本地 Agent 目录
+### 构建到 dist/（仓库同目录下）
 
 ```bash
-python build.py                 # 全部
-python build.py --agent qwen    # 只发 qwen
+python build.py                 # 全部 skill → dist/<agent>/<skill>/
+python build.py --agent qwen    # 只构建 qwen
 python build.py --dry-run       # 只看不写
+python build.py --clean         # 清空 dist/
 ```
 
-目标目录不存在时会跳过并提示，不会报错。
+产物输出到仓库根目录下的 `dist/<agent>/<skill>/`，该目录已被 `.gitignore` 忽略。
 
 ### 新增一个 Skill
 
@@ -56,5 +58,5 @@ python build.py
 ## 铁律
 
 1. 改内容 → 改 `src/`；改平台适配 → 改 `variants/`。
-2. 各 Agent 目录是生成物，**不要手改**（手改会被下次 build 覆盖）。
+2. `dist/` 是生成物，**不要手改**（手改会被下次 build 覆盖），也**不要提交**。
 3. 一次提交对应一个 Skill 或一个平台的适配变化，提交信息写清「改了什么」。
